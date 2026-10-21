@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Roue de Camelot DJ</title>
+<style>
+:root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);--bg:#f4f4f8;--fg:#1a1a24;--card:#fff;--mut:#666}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#12121a;--fg:#eee;--card:#1d1d29;--mut:#9a9aaa}}
+:root[data-theme="dark"]{--bg:#12121a;--fg:#eee;--card:#1d1d29;--mut:#9a9aaa}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--fg);font-family:system-ui,-apple-system,Segoe UI,sans-serif;display:flex;flex-wrap:wrap;gap:20px;justify-content:center;padding:16px}
+h1{width:100%;text-align:center;margin:0;font-size:1.4rem}
+p.sub{width:100%;text-align:center;margin:0;color:var(--mut);font-size:.9rem}
+svg{width:min(92vw,460px);height:auto}
+.seg{cursor:pointer;transition:opacity .2s,filter .2s;stroke:var(--bg);stroke-width:2}
+.seg.dim{opacity:.22}
+.seg.sel{stroke:var(--fg);stroke-width:4}
+text{pointer-events:none;font-weight:700;text-anchor:middle;dominant-baseline:middle;fill:#111}
+.k{font-size:15px}.n{font-size:9px;font-weight:500}
+.panel{background:var(--card);border-radius:14px;padding:16px;width:min(92vw,340px);align-self:flex-start}
+.big{font-size:2.2rem;font-weight:800;margin:0}
+.big small{font-size:1rem;font-weight:500;color:var(--mut)}
+ul{list-style:none;padding:0;margin:12px 0 0}
+li{display:flex;align-items:center;gap:10px;padding:8px 0;border-top:1px solid rgba(128,128,128,.25);cursor:pointer}
+.chip{min-width:44px;text-align:center;font-weight:800;border-radius:8px;padding:4px 6px;color:#111}
+.lab{font-size:.85rem;color:var(--mut)}
+.lab b{color:var(--fg);display:block;font-size:.95rem}
+.row{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap}
+input{flex:1;min-width:0;padding:8px;border-radius:8px;border:1px solid rgba(128,128,128,.4);background:var(--bg);color:var(--fg);font:inherit}
+button{padding:8px 12px;border:0;border-radius:8px;background:#6c5ce7;color:#fff;font:inherit;font-weight:600;cursor:pointer}
+button.x{background:transparent;color:var(--mut);padding:2px 8px;margin-left:auto}
+h2{font-size:1rem;margin:16px 0 0}
+.mix{font-size:.8rem;color:var(--mut);margin:6px 0 0}
+.ok{color:#2ecc71}.bad{color:#e74c3c}.bo{color:#f39c12}
+</style>
+</head>
+<body>
+<h1>🎧 Roue de Camelot</h1>
+<p class="sub">Touche une clé pour voir les mixages harmoniques compatibles</p>
+<svg id="w" viewBox="0 0 400 400" aria-label="Roue de Camelot"></svg>
+<div class="panel">
+<p class="big" id="cur"></p>
+<p class="lab" id="open"></p>
+<div class="row"><input id="bpm" type="number" min="40" max="220" placeholder="BPM" inputmode="numeric"><input id="ttl" placeholder="Titre (optionnel)"></div>
+<p class="mix" id="mix"></p>
+<ul id="list"></ul>
+<div class="row"><button id="add">＋ Ajouter à la playlist</button></div>
+<h2>Playlist</h2>
+<ul id="pl"></ul>
+</div>
+<script>
+const MAJ=["B","F♯","D♭","A♭","E♭","B♭","F","C","G","D","A","E"];
+const MIN=["A♭m","E♭m","B♭m","Fm","Cm","Gm","Dm","Am","Em","Bm","F♯m","D♭m"];
+const NS="http://www.w3.org/2000/svg",C=200;
+const w=document.getElementById("w");
+const col=n=>`hsl(${(n*30+120)%360},65%,${70}%)`;
+const P=(r,a)=>[C+r*Math.sin(a),C-r*Math.cos(a)];
+function arc(r1,r2,a1,a2){const[p1,p2,p3,p4]=[P(r2,a1),P(r2,a2),P(r1,a2),P(r1,a1)];
+return`M${p1}A${r2},${r2} 0 0 1 ${p2}L${p3}A${r1},${r1} 0 0 0 ${p4}Z`}
+const segs={};
+for(const L of["B","A"]){const[r1,r2]=L==="B"?[122,190]:[58,120];
+for(let n=1;n<=12;n++){
+const mid=(n-12)*Math.PI/6,h=Math.PI/12;
+const p=document.createElementNS(NS,"path");
+p.setAttribute("d",arc(r1,r2,mid-h,mid+h));p.setAttribute("fill",col(n));p.setAttribute("class","seg");
+p.onclick=()=>sel(n,L);w.appendChild(p);segs[n+L]=p;
+const rm=(r1+r2)/2,[x,y]=P(rm,mid);
+const t=document.createElementNS(NS,"text");t.setAttribute("x",x);t.setAttribute("y",y-5);t.setAttribute("class","k");t.textContent=n+L;w.appendChild(t);
+const t2=document.createElementNS(NS,"text");t2.setAttribute("x",x);t2.setAttribute("y",y+10);t2.setAttribute("class","n");t2.textContent=(L==="B"?MAJ:MIN)[n-1];w.appendChild(t2);
+}}
+const wrap=n=>((n-1+12)%12)+1;
+const name=(n,L)=>(L==="B"?MAJ:MIN)[n-1]+(L==="B"?" majeur":" mineur");
+function sel(n,L){
+const o=L==="A"?"B":"A";
+const rel=[
+[n+L,"Même clé","Mix parfait"],
+[wrap(n+1)+L,"+1","Montée d'énergie douce"],
+[wrap(n-1)+L,"−1","Descente douce"],
+[n+o,"Relatif","Change l'ambiance (majeur ↔ mineur)"],
+[wrap(n+2)+L,"+2","Boost d'énergie"]];
+const ok=new Set(rel.map(r=>r[0]));
+for(const k in segs){segs[k].classList.toggle("dim",!ok.has(k));segs[k].classList.toggle("sel",k===n+L)}
+document.getElementById("cur").innerHTML=`${n}${L} <small>${name(n,L)}</small>`;
+cur={n,L};info();
+const ul=document.getElementById("list");ul.innerHTML="";
+rel.forEach(([k,t,d])=>{const li=document.createElement("li");
+const num=parseInt(k);
+li.innerHTML=`<span class="chip" style="background:${col(num)}">${k}</span><span class="lab"><b>${t} · ${name(num,k.slice(-1))}</b>${d}</span>`;
+li.onclick=()=>sel(num,k.slice(-1));ul.appendChild(li)});
+}
+let cur={n:8,L:"A"},pl=[];
+try{pl=JSON.parse(localStorage.getItem("camelotPl")||"[]")}catch(e){}
+const $=id=>document.getElementById(id);
+const okey=(n,L)=>(((n-8+12)%12)+1)+(L==="B"?"d":"m");
+function info(){
+$("open").textContent=`Open Key / Traktor : ${okey(cur.n,cur.L)}`;
+const b=parseFloat($("bpm").value);
+$("mix").textContent=b>0?`Plage de mix ±6 % : ${Math.round(b*.94)}–${Math.round(b*1.06)} BPM · demi-tempo ${Math.round(b/2)} · double ${Math.round(b*2)}`:"Entre un BPM pour voir la plage de mixage";
+}
+$("bpm").oninput=info;
+const dist=(a,b)=>{const d=Math.abs(a-b);return Math.min(d,12-d)};
+function cmp(x,y){
+if(x.n===y.n)return["✓","ok","Compatible"];
+if(x.L===y.L){const d=dist(x.n,y.n);if(d===1)return["✓","ok","Compatible"];if(d===2)return["⚡","bo","Boost d’énergie"]}
+return["✗","bad","Transition risquée"]}
+function save(){try{localStorage.setItem("camelotPl",JSON.stringify(pl))}catch(e){}}
+function draw(){
+const ul=$("pl");ul.innerHTML="";
+if(!pl.length){ul.innerHTML='<li class="lab">Aucun morceau pour l’instant</li>';return}
+pl.forEach((t,i)=>{
+if(i){const[s,c,l]=cmp(pl[i-1],t);const m=document.createElement("li");m.className="lab";m.innerHTML=`<span class="${c}">${s}</span> ${l}`;ul.appendChild(m)}
+const li=document.createElement("li");
+li.innerHTML=`<span class="chip" style="background:${col(t.n)}">${t.n}${t.L}</span><span class="lab"><b>${t.t||"Morceau "+(i+1)}</b>${t.b?t.b+" BPM · ":""}${okey(t.n,t.L)}</span>`;
+li.onclick=e=>{if(e.target.tagName!=="BUTTON")sel(t.n,t.L)};
+const x=document.createElement("button");x.className="x";x.textContent="✕";x.onclick=()=>{pl.splice(i,1);save();draw()};
+li.appendChild(x);ul.appendChild(li)})}
+$("add").onclick=()=>{pl.push({n:cur.n,L:cur.L,b:parseFloat($("bpm").value)||0,t:$("ttl").value.trim()});$("ttl").value="";save();draw()};
+draw();sel(8,"A");
+</script>
+</body>
+</html>
